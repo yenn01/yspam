@@ -3,6 +3,8 @@
     import { fade, fly } from 'svelte/transition';
     import {Stretch} from 'svelte-loading-spinners';
     import anime from 'animejs/lib/anime.es.js';
+    import Toast from "./components/Toast.svelte";
+    import {notifications} from './stores/notifications.js'
 
     $: src = "./logo_ham.png"
     let inputText = ''
@@ -16,6 +18,8 @@
     $: textAreaColor = 'rgb(243, 243, 243)';
     $: textAreaSize = 5;
     $: textLength = inputText.length;
+
+    $: textLength, emptyArea();
     $: inputText,setSize();
 
 
@@ -85,11 +89,28 @@
         }
     }
 
-    async function getPrediction() {
-        loading = true;
+    function reset() {
+        
+        src = "./logo_ham.png"
         textAreaColor = 'rgb(243, 243, 243)'
-        results = 'L'
+        results ='F'
         show = false;
+    }
+
+    function emptyArea() {
+        if(textLength<=0) {
+            reset()
+        }
+    }
+
+    async function getPrediction() {
+        if(textLength <= 0) {
+            notifications.danger('No message passed', 4000)
+            return;
+        }
+        reset()
+        loading = true;
+        results = 'L'
         console.log(encodeURI(inputText))
         let url = "/analyse?text="+encodeURI(inputText)
         const res = await fetch(url).then(res => res.json()).then(
@@ -127,18 +148,19 @@
 </svelte:head>
 
 <main>
+    <Toast/>
 	<div class="main-container">
         <div class="top-container">
 			<img class="logo" {src} transition:fade/>
-            <div class="state-holder">
+            <div class="state-holder" >
                 {#if results === 'F'}
-                    <p class="slogan state-item">Can't differentiate <strong>spam</strong> texts? </p>
+                    <p class="slogan state-item" transition:fade>Can't differentiate <strong>spam</strong> texts? </p>
                 {:else if results === 'H'}
-                    <p class="slogan state-item">Most likely it's <strong style="color:#45ea81;">okay</strong>!</p>
+                    <p class="slogan state-item" transition:fade>Most likely it's <strong style="color:#45ea81;">okay</strong>!</p>
                 {:else if results === 'S'}
-                    <p class="slogan state-item">Be careful ! It's most likely <strong style="color:#d55252;">spam</strong>.</p>
+                    <p class="slogan state-item" transition:fade>Be careful ! It's most likely <strong style="color:#d55252;">spam</strong>.</p>
                 {:else if results === 'L'}
-                <p class="slogan state-item">Please wait while we <strong>investigate</strong>.</p>
+                    <p class="slogan state-item" transition:fade>Please wait while we <strong>investigate</strong>.</p>
                 {/if}
             </div>
             <small>Paste them below to check </small>
@@ -161,7 +183,7 @@
 				</div>
         </div>
         {#if show === true}
-        <div class="progress-holder" transition:fly="{{ y: 100, duration: 500 }}" on:introend={change}>
+        <div class="progress-holder" transition:fly="{{ y: 50, duration: 500 }}" on:introend={change}>
             <div class="progress-bar progress-background"></div>
             <div class="progress-bar progress-front" id="progress"></div>
             <div class="progress-ham"><strong id="hamPercent">0</strong> %</div>
@@ -173,12 +195,20 @@
 	
 	
 </main>
-
+<footer>
+	<small>All Rights Reserved | &copy; 2022 y spam?</small>
+</footer>
 
 	
 
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Lora&family=Playfair+Display&display=swap');
+
+
+    footer {
+        color:rgb(243, 243, 243);
+        text-align:center;
+    }
 
     small {
         color:rgb(243, 243, 243);
@@ -264,6 +294,7 @@
         min-width: 50px;
         color:white;
         font-size: 1.3rem;
+        font-family: 'Lora',serif;
     }
 
     .length {
@@ -294,6 +325,7 @@
 		max-width: 500px;
 		margin: 0 auto;
         min-width: 500px;
+        min-height: 95vh;
 	}
 
 	@media (min-width: 500px) {

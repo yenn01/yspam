@@ -1,138 +1,351 @@
 <script>
 	export let name;
+    import { fade, fly } from 'svelte/transition';
+    import {Stretch} from 'svelte-loading-spinners';
+    import anime from 'animejs/lib/anime.es.js';
+
+    $: src = "./logo_ham.png"
+    let inputText = ''
+    $: results = 'F';
+    $: loading = false;
+    $: ham = 0;
+    $: spam = 0;
+    $: text = '';
+    $: show = false;
+    let response;
+    $: textAreaColor = 'rgb(243, 243, 243)';
+    $: textAreaSize = 5;
+    $: textLength = inputText.length;
+    $: inputText,setSize();
 
 
+    const change = () => {
+        let hamPercent = Math.round(response.ham*100 * 100) / 100
+        
+        let spamPercent = Math.round(response.spam*100 * 100) / 100
+        ham = response.ham
+        spam = response.spam
+        anime({
+            targets: '#progress',
+            width: `${hamPercent}%`,
+            easing: 'easeOutExpo',
+            duration:4000
+        })
+        anime({
+            targets: '#hamPercent',
+            innerHTML: [0,hamPercent],
+            easing: 'easeOutExpo',
+            round:100,
+            duration:3000,
+            
+        })
+        anime({
+            targets: '#spamPercent',
+            innerHTML: [0,spamPercent],
+            easing: 'easeOutExpo',
+            round:100,
+            duration:3000,
+            
+        })
+        
+
+
+
+        if(response.spam > response.ham) {
+            src = "./logo_spam.png"
+            results = 'S';
+            text = 'Likely Spam'
+            textAreaColor = '#d55252'
+        } else if (response.ham > response.spam) {
+            src = "./logo_ham.png"
+            results = 'H';
+            text = 'Likely Safe'
+            textAreaColor = '#41ee9c'
+        } 
+    }
+
+
+    const setSize = () => {
+        if (textLength < 10) {
+            textAreaSize = 5;
+        } else if (textLength < 20) {
+            textAreaSize = 4;
+        } else if (textLength < 40) {
+            textAreaSize = 3.5;
+        } else if (textLength < 55) {
+            textAreaSize = 3;
+        } else if (textLength < 130) {
+            textAreaSize = 2;
+        } else if (textLength < 200) {
+            textAreaSize = 1.7;
+        } else if (textLength < 300) {
+            textAreaSize = 1.4;
+        } else {
+            textAreaSize = 1.2;
+        }
+    }
+
+    async function getPrediction() {
+        loading = true;
+        textAreaColor = 'rgb(243, 243, 243)'
+        results = 'L'
+        show = false;
+        console.log(encodeURI(inputText))
+        let url = "/analyse?text="+encodeURI(inputText)
+        const res = await fetch(url).then(res => res.json()).then(
+			parsed => {
+                    response = arrMerge(parsed.labels,parsed.scores)
+                    show = true;
+                    loading=false;
+                    
+                   console.log(JSON.stringify(response))
+            }
+		).catch((e)=> {
+            show = false
+            loading = false;
+            console.error(e)
+        });
+        
+    }
+
+    function arrMerge(k, v) {
+
+        var obj = {};
+
+        for (var i = 0; i < k.length; i++) {
+            obj[k[i]] = v[i];
+        }
+
+        return obj;
+    }
+
+    
 </script>
 
+<svelte:head>
+    <title>spam?</title>
+</svelte:head>
+
 <main>
-	<!-- <h1>Hello {name}!</h1>
-	<p>Visit the <a href="https://svelte.dev/tutorial">Svelte tutorial</a> to learn how to build Svelte apps.</p> -->
+	<div class="main-container">
+        <div class="top-container">
+			<img class="logo" {src} transition:fade/>
+            <div class="state-holder">
+                {#if results === 'F'}
+                    <p class="slogan state-item">Can't differentiate <strong>spam</strong> texts? </p>
+                {:else if results === 'H'}
+                    <p class="slogan state-item">Most likely it's <strong style="color:#45ea81;">okay</strong>!</p>
+                {:else if results === 'S'}
+                    <p class="slogan state-item">Be careful ! It's most likely <strong style="color:#d55252;">spam</strong>.</p>
+                {:else if results === 'L'}
+                <p class="slogan state-item">Please wait while we <strong>investigate</strong>.</p>
+                {/if}
+            </div>
+            <small>Paste them below to check </small>
+				<div class="in-form">
+                    <textarea class="input-area" style="font-size:{textAreaSize}rem; transition: 0.5s; border:4px solid {textAreaColor};" bind:value={inputText} transition:fade placeholder="Type here..."></textarea>
+					<p class="length"> {textLength} chars</p>
+                    <div class="state-holder">
+                        {#if loading === false}
+                            <button class="search_btn state-item" type="submit" on:click={getPrediction} transition:fade>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="white" class="search_icon" viewBox="-1 -3 24 24">
+                                    <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                                </svg>
+                                <div class="inner_btn" transition:fade> Check</div>	
+                            
+                            </button>
+                        {:else}
+                            <div class="state-item"><Stretch color="#41ee9c"></Stretch></div>
+                        {/if}
+                    </div>
+				</div>
+        </div>
+        {#if show === true}
+        <div class="progress-holder" transition:fly="{{ y: 100, duration: 500 }}" on:introend={change}>
+            <div class="progress-bar progress-background"></div>
+            <div class="progress-bar progress-front" id="progress"></div>
+            <div class="progress-ham"><strong id="hamPercent">0</strong> %</div>
+            <div class="progress-text" style="color:{ ham > spam ? '#41ee9c' : spam > ham ?'#d55252' : 'rgb(243, 243, 243)'}"><strong transition:fade>{text}</strong></div>
+            <div class="progress-spam"><strong id="spamPercent">0</strong> %</div>
+        </div>
+        {/if}
+	</div>
+	
+	
 </main>
 
-<body>
-	<div class="header">
-		<p>Y5 Securities</p>
-		<p>World's Best Scam Detection Platform</p>
-	</div>
-	<div class="form">
-		<div>
-			<h2>Y5 Securities</h2>
-			<img src="favicon.png" height="150" width="150"/>
-			<h1>Scam Detector</h1>
-			<p class="slogan">Can't tell which are scam texts? <br> Paste them below to check <br></p>
-			<form action="">
-				<div class="in-form">
-					<div class="input_container">
-						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="search_icon" viewBox="0 0 24 24">
-							<path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
-						</svg>
-						<input class="search_input" type="text" placeholder="Enter text here">
-						<button class="search_btn" type="submit">Check</button>
-					</div>
-				</div>
-			</form>
-		</div> 
-	</div>
-	<div class="meter">
-		<meter value="0.5" ></meter>
-	</div>
-</body>
+
+	
 
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Lora&family=Playfair+Display&display=swap');
+
+    small {
+        color:rgb(243, 243, 243);
+    }
+
+    .progress-holder {
+        display:grid;
+        grid-template-columns: repeat(3, 2fr);
+        grid-template-rows: repeat(2, 3fr);
+        width:50%;
+        height:50px;
+
+    }
+
+    .progress-bar {
+        
+        grid-column: 1/4;
+        grid-row: 1/2;
+    }
+
+    .progress-ham {
+        grid-column: 1/2;
+        grid-row: 2/3;
+        color :#41ee9c;
+        text-align: left;
+    }
+
+    .progress-spam {
+        grid-column: 3/4;
+        grid-row: 2/3;
+        color :#d55252;
+        text-align:right;
+    }
+
+    .progress-text {
+        grid-column: 2/3;
+        grid-row: 2/3;    
+        color:rgb(243, 243, 243);    
+    }
+
+    .top-container {
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+        margin-bottom:1em;
+    }
+
+    .progress-front {
+        background-color: #41ee9c;
+        border-radius: 20px;
+        height:10px;
+        width:1%;
+    }
+
+    .progress-background {
+        background-color: #d55252;
+        border-radius: 20px;
+        height:10px;
+    }
+
+    .state-holder {
+        display:grid;
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr;
+    }
+
+    .state-item {
+        grid-column: 1/2;
+        grid-row: 1/2;
+    }
+
+    .input-area {
+        border-radius: 10px;
+        background-color: #cecece;
+        resize: none;
+        width:50vw;
+        height:24vh;
+        font-family: 'Lora',serif;
+        margin:0;
+    }
+
+    .inner_btn {
+        min-width: 50px;
+        color:white;
+        font-size: 1.3rem;
+    }
+
+    .length {
+        margin-bottom: 1.5em;
+    }
+
+    :global(body) {
+        background: #191919;
+    }
+
+    .logo {
+        width:40vw;
+    }
+
+    strong {
+        font-weight: 2000;
+        font-size:1.5rem;
+    }
+
+    p {
+        font-family: 'Lora', serif; 
+        color: rgb(243, 243, 243);
+    }
+
 	main {
 		text-align: center;
-		padding: 1em;
-		max-width: 240px;
+		padding: 0.2em;
+		max-width: 500px;
 		margin: 0 auto;
+        min-width: 500px;
 	}
 
-	body{
-		background-color: rgb(224, 227, 230);
-	}
-
-	h1 {
-
-		text-transform: uppercase;
-		font-size: 4em;
-		font-weight: 100;
-	}
-
-	@media (min-width: 640px) {
+	@media (min-width: 500px) {
 		main {
 			max-width: none;
 		}
+
+        
 	}
 
-	.form{
-		color: whitesmoke;
-		padding-top: 100px;
-		background-color: darkcyan;
-		box-sizing: block;
-		text-align: center;
+    @media(max-width:600px) {
+        .input-area {
+            width: 70vw;
+        }
+    }
+
+    .search_btn {
+        display:flex;
+        flex-direction: row;
+        align-items: center;
+        min-width: 200px;
+        justify-content: center;
+        border-radius: 20px;
+        background: none;
+        border: 2px solid white;
+        
+    }
+
+    .search_btn:hover {
+        background-color: #41ee9c;
+        transition: 0.3s;
+        cursor:pointer;
+    }
+
+	.main-container{
+		display:flex;
+        flex-direction: column;
+        align-items: center;
 	}
 
 	.slogan {
-		font-size: 23px;
+		font-size: 1.3rem;
 	}
 
-	form{
-		width: 100%;
-		margin: 0px auto;
-	}
 
 	.in-form {
-		display: block;
-		box-sizing: inherit;
-		padding-bottom: 5%;
-	}
-
-
-	.input_container {
-		width: 60%;
-		margin-left: 20%;
-		margin-left: 20%;
-		position: relative;
-		background-color: white;
-		padding: 20px, 150px, 20px, 70px;
-		font-size: 20px;
-		color: black;
-		border-radius: 20px;
 		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		overflow: hidden;
-		-webkit-transition: all 0.3s;
-
-	}
-
-	.search_input{
-		margin: 0;
-		padding-top: 1%;
-		padding-bottom: 1%;
-		font-size: 20px;
-		width: 90%;
-		vertical-align: middle;
-		border: 0;
-		box-shadow: none;
-		outline: none;
+        flex-direction: column;
+        align-items: center;
 	}
 
 
-
-	.search_btn{
-		margin: 0;
-		height: 100%;
-		right: 0;
-		top: 0;
-		padding-top: 1%;
-		padding-bottom: 1%;
-		border-radius: 2px;
-		justify-content: center;
-		position: absolute;
-		cursor: pointer;
-		align-items: center;
-		display: flex;
-	}
 
 	.search_icon{
 		height: 100%;
@@ -145,12 +358,8 @@
 		padding-left: 1%;
 	}
 
-	.meter {
-		padding-top: 5%;
-		text-align: center;
-	}
 
-	meter {
+	.meter {
 		width: 500px;
 		height: 100px;
 	}

@@ -18,6 +18,8 @@
     "svelte": "^3.0.0"
   },
   "dependencies": {
-    "sirv-cli": "^2.0.0"
+    "animejs": "^3.2.1",
+    "sirv-cli": "^2.0.0",
+    "svelte-loading-spinners": "^0.1.7"
   }
 }
